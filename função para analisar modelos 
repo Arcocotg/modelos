@@ -1,0 +1,78 @@
+
+
+analise <- function(reg) {
+  library(broom)
+  library(knitr)
+  library(lmtest)
+  library(car)
+  
+  # Função auxiliar para adicionar códigos de significância
+  sig_code <- function(p) {
+    if (p < 0.001) return("***")
+    else if (p < 0.01) return("**")
+    else if (p < 0.05) return("*")
+    else if (p < 0.1) return(".")
+    else return("")
+  }
+  
+  # Summary do modelo e extração dos valores p
+  summary_reg <- summary(reg)
+  coefs <- summary_reg$coefficients
+  p_values <- coefs[, 4] # Coluna com os valores p dos coeficientes
+  
+  # Adiciona os códigos de significância
+  sig_codes <- sapply(p_values, sig_code)
+  
+  # Testes de pressuposições
+  shapiro_res <- shapiro.test(resid(reg))
+  shapiro_p_valor <- shapiro_res$p.value
+  
+  bptest_res <- bptest(reg)
+  bptest_p_valor <- bptest_res$p.value
+  
+  dwtest_res <- dwtest(reg)
+  dwtest_p_valor <- dwtest_res$p.value
+  
+  # Outras métricas do modelo
+  AIC_valor <- AIC(reg)
+  BIC_valor <- BIC(reg)
+  r2 <- summary_reg$r.squared  
+  adj_r2 <- summary_reg$adj.r.squared
+  f_estat <- summary_reg$fstatistic[1]
+  p_valor <- pf(f_estat, summary_reg$fstatistic[2], summary_reg$fstatistic[3], lower.tail = FALSE)
+  
+  # Criação da tabela de VIF com os valores p e códigos de significância
+  vif_values <- vif(reg)
+  vif_table <- data.frame(
+    Variável = names(vif_values),
+    VIF = vif_values,
+    `P-valor dos coeficientes` = p_values[names(vif_values)],
+    `Significância` = sig_codes[names(vif_values)]
+  )
+  
+  # Tabelas dos resultados
+  resultados1 <- data.frame(
+    Métrica = c("R2", "R2 ajustado", "Estatística F", "P-valor F", "AIC", "BIC", 
+                "P-valor Shapiro-Wilk (Normalidade)", "P-valor Breusch-Pagan (Homoscedasticidade)", "P-valor Durbin-Watson (Independência)"),
+    Valor = c(r2, adj_r2, f_estat, p_valor, AIC_valor, BIC_valor, shapiro_p_valor, bptest_p_valor, dwtest_p_valor)
+  )
+  
+  tab1 <- kable(resultados1,
+                digits = 4,
+                col.names = c("Métrica", "Valor"),
+                align = c("l", "r"),
+                caption = "Resultados da Regressão e Testes de Pressuposições")
+  
+  tab2 <- kable(vif_table,
+                digits = 4,
+                col.names = c("Variável", "VIF", "P-valor dos coeficientes", "Significância"),
+                caption = "Grau de Multicolinearidade e Significância dos Coeficientes")
+  
+  # Plot dos gráficos de diagnóstico
+  par(mfrow=c(2,2))
+  plot(reg)
+  
+  # Exibindo as tabelas
+  print(tab2)
+  print(tab1)
+}
